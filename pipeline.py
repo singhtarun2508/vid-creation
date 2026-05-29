@@ -27,6 +27,11 @@ from PIL import Image, ImageDraw, ImageFont
 
 # ── ALL CONSTANTS FIRST ───────────────────────────────────────────────────────
 FPS = 24
+MODEL_FALLBACKS = [
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-pro",
+]
 
 W, H = 720, 1280   # Portrait / reel
 
@@ -88,28 +93,77 @@ except ImportError:
 # ─────────────────────────────────────────────────────────────────────────────
 # GEMINI HELPER  (google.genai — new SDK)
 # ─────────────────────────────────────────────────────────────────────────────
+# def _gemini(prompt: str, max_tokens: int = 800) -> str:
+#     """Call Gemini via the new google.genai SDK and return the text response."""
+#     if not HAS_GEMINI:
+#         raise RuntimeError("google-genai package not installed.")
+
+#     client = google_genai.Client(api_key=GEMINI_API_KEY)
+#     cfg    = genai_types.GenerateContentConfig(
+#         max_output_tokens=max_tokens,
+#         temperature=0.9,
+#         thinking_config=genai_types.ThinkingConfig(
+#             thinking_budget=0
+#         )
+#     )
+#     response = client.models.generate_content(
+#         model=GEMINI_MODEL,
+#         contents=prompt,
+#         config=cfg,
+#     )
+#     return response.text.strip()
+
+
 def _gemini(prompt: str, max_tokens: int = 800) -> str:
-    """Call Gemini via the new google.genai SDK and return the text response."""
     if not HAS_GEMINI:
         raise RuntimeError("google-genai package not installed.")
 
-    client = google_genai.Client(api_key=GEMINI_API_KEY)
-    cfg    = genai_types.GenerateContentConfig(
-        max_output_tokens=max_tokens,
-        temperature=0.9,
-        thinking_config=genai_types.ThinkingConfig(
-            thinking_budget=0
-        )
+    last_error = None
+
+    for model_name in MODEL_FALLBACKS:
+
+        try:
+            print(f"  🤖 Trying model: {model_name}")
+
+            client = google_genai.Client(api_key=GEMINI_API_KEY)
+
+            cfg = genai_types.GenerateContentConfig(
+                max_output_tokens=max_tokens,
+                temperature=0.9,
+                thinking_config=genai_types.ThinkingConfig(
+                    thinking_budget=0
+                )
+            )
+
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=cfg,
+            )
+
+            print(f"  ✅ Success with {model_name}")
+
+            return response.text.strip()
+
+        except Exception as e:
+
+            last_error = e
+            error_text = str(e)
+
+            if "429" in error_text or "RESOURCE_EXHAUSTED" in error_text:
+                print(f"  ⚠️ Quota exhausted for {model_name}")
+                continue
+
+            if "404" in error_text or "not found" in error_text.lower():
+                print(f"  ⚠️ Model not available: {model_name}")
+                continue
+
+            print(f"  ❌ Unexpected error from {model_name}: {e}")
+            raise
+
+    raise RuntimeError(
+        f"All Gemini models failed. Last error: {last_error}"
     )
-    response = client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=prompt,
-        config=cfg,
-    )
-    return response.text.strip()
-
-
-
 
 
 # ─────────────────────────────────────────────────────────────────────────────
