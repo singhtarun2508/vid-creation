@@ -68,6 +68,7 @@ METADATA_DIR          = "metadata"
 AUDIO_DIR             = "audio"
 
 W, H = 720, 1280   # Portrait / reel
+FPS = 24
 
 VOICE_1 = "en-US-AriaNeural"
 VOICE_2 = "en-US-GuyNeural"
