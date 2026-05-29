@@ -25,7 +25,34 @@ import numpy as np
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 
+# ── ALL CONSTANTS FIRST ───────────────────────────────────────────────────────
 FPS = 24
+
+W, H = 720, 1280   # Portrait / reel
+
+VOICE_1 = "en-US-AriaNeural"
+VOICE_2 = "en-US-GuyNeural"
+
+GEMINI_MODEL = "gemini-2.5-flash"
+
+MAX_RETRIES = 3   # retries for audio lines and video assembly
+
+# ── Config from environment ───────────────────────────────────────────────────
+GEMINI_API_KEY        = os.environ.get("GEMINI_API_KEY", "")
+GOOGLE_DRIVE_FOLDER   = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "")
+METADATA_DRIVE_FOLDER = os.environ.get("METADATA_DRIVE_FOLDER_ID", "")
+UPLOAD_TO_DRIVE       = os.environ.get("UPLOAD_TO_DRIVE", "false").lower() == "true"
+BG_MUSIC_PATH         = os.environ.get("BG_MUSIC_PATH", "")
+OUTPUT_DIR            = "output"
+METADATA_DIR          = "metadata"
+AUDIO_DIR             = "audio"
+
+# ── Layout constants ──────────────────────────────────────────────────────────
+TREE_X   = W - 115
+GROUND_Y = H * 3 // 5
+VEG1_X   = W // 4 - 10
+VEG2_X   = W // 2 + 30
+CHAR_Y   = GROUND_Y + 60
 
 # ── Optional imports ──────────────────────────────────────────────────────────
 try:
@@ -57,27 +84,6 @@ try:
 except ImportError:
     HAS_SCIPY = False
 
-# ─────────────────────────────────────────────────────────────────────────────
-# CONFIG  — edit before running
-# ─────────────────────────────────────────────────────────────────────────────
-GEMINI_API_KEY        = os.environ.get("GEMINI_API_KEY", "")
-GOOGLE_DRIVE_FOLDER   = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "")
-METADATA_DRIVE_FOLDER = os.environ.get("METADATA_DRIVE_FOLDER_ID", "")
-UPLOAD_TO_DRIVE       = os.environ.get("UPLOAD_TO_DRIVE", "false").lower() == "true"
-BG_MUSIC_PATH         = os.environ.get("BG_MUSIC_PATH", "")
-OUTPUT_DIR            = "output"
-METADATA_DIR          = "metadata"
-AUDIO_DIR             = "audio"
-
-W, H = 720, 1280   # Portrait / reel
-
-
-VOICE_1 = "en-US-AriaNeural"
-VOICE_2 = "en-US-GuyNeural"
-
-GEMINI_MODEL = "gemini-2.5-flash"
-
-MAX_RETRIES = 3   # retries for audio lines and video assembly
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GEMINI HELPER  (google.genai — new SDK)
@@ -651,7 +657,7 @@ def _draw_eggplant(draw, cx, cy, scale, c, mouth_open, talking):
 
 
 def _draw_broccoli(draw, cx, cy, scale, c, mouth_open, talking):
-    trunk_w  = int(20*scale)
+    trunk_w   = int(20*scale)
     canopy_cy = cy - int(48*scale)
     canopy_base_r = int(38*scale)
     trunk_top = canopy_cy + canopy_base_r - int(6*scale)
@@ -805,12 +811,12 @@ def _draw_radish(draw, cx, cy, scale, c, mouth_open, talking):
 
 
 SHAPE_DRAWERS = {
-    "potato": _draw_potato,   "carrot": _draw_carrot,
-    "broccoli": _draw_broccoli, "tomato": _draw_tomato,
-    "onion": _draw_onion,     "eggplant": _draw_eggplant,
-    "pumpkin": _draw_pumpkin, "corn": _draw_corn,
-    "cucumber": _draw_cucumber, "pepper": _draw_pepper,
-    "zucchini": _draw_zucchini, "radish": _draw_radish,
+    "potato":   _draw_potato,   "carrot":   _draw_carrot,
+    "broccoli": _draw_broccoli, "tomato":   _draw_tomato,
+    "onion":    _draw_onion,    "eggplant": _draw_eggplant,
+    "pumpkin":  _draw_pumpkin,  "corn":     _draw_corn,
+    "cucumber": _draw_cucumber, "pepper":   _draw_pepper,
+    "zucchini": _draw_zucchini, "radish":   _draw_radish,
 }
 
 
@@ -834,7 +840,7 @@ _BG_EXTRAS = [
 
 
 def _draw_bg_extras(img_rgba, story, ground_y, alpha_frac=0.38):
-    skip = {story["veg1"], story["veg2"]}
+    skip  = {story["veg1"], story["veg2"]}
     layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d     = ImageDraw.Draw(layer)
     for veg, xf, cy_off, sc in _BG_EXTRAS:
@@ -855,8 +861,8 @@ def _draw_bg_extras(img_rgba, story, ground_y, alpha_frac=0.38):
 # ─────────────────────────────────────────────────────────────────────────────
 def _draw_garden_tree(draw, tx, ty, scale=1.0, bird_phase=0.0):
     s = scale
-    trunk_w = int(22*s)
-    trunk_h = int(110*s)
+    trunk_w   = int(22*s)
+    trunk_h   = int(110*s)
     canopy_lift = int(55*s)
     trunk_top_y = ty - trunk_h
     canopy_cy   = trunk_top_y - canopy_lift
@@ -874,13 +880,13 @@ def _draw_garden_tree(draw, tx, ty, scale=1.0, bird_phase=0.0):
               fill="#8B6340", width=max(5,int(8*s)))
 
     bumps = [
-        (0,              0,            int(52*s)),
-        (-int(40*s),     int(18*s),    int(34*s)),
-        ( int(40*s),     int(18*s),    int(34*s)),
-        (-int(20*s),    -int(28*s),    int(30*s)),
-        ( int(20*s),    -int(28*s),    int(30*s)),
-        (-int(58*s),     int(6*s),     int(24*s)),
-        ( int(58*s),     int(6*s),     int(24*s)),
+        (0,           0,          int(52*s)),
+        (-int(40*s),  int(18*s),  int(34*s)),
+        ( int(40*s),  int(18*s),  int(34*s)),
+        (-int(20*s), -int(28*s),  int(30*s)),
+        ( int(20*s), -int(28*s),  int(30*s)),
+        (-int(58*s),  int(6*s),   int(24*s)),
+        ( int(58*s),  int(6*s),   int(24*s)),
     ]
     shadow_col = "#2E7D32"; main_col = "#43A047"; light_col = "#66BB6A"
     for ox, oy, r in bumps:
@@ -906,8 +912,8 @@ def _draw_garden_tree(draw, tx, ty, scale=1.0, bird_phase=0.0):
 def _draw_blue_bird(draw, cx, cy, scale):
     s = scale
     br = int(18*s)
-    body_col = "#4A90D9"; wing_col = "#3A78C0"
-    light_col = "#7AB8F0"; beak_col = "#FFA726"; eye_col = "#1A1A2E"
+    body_col  = "#4A90D9"; wing_col  = "#3A78C0"
+    light_col = "#7AB8F0"; beak_col  = "#FFA726"; eye_col = "#1A1A2E"
 
     tail_pts = [(cx+br-4,          cy+int(6*s)),
                 (cx+br+int(20*s),  cy+int(16*s)),
@@ -975,9 +981,6 @@ BACKGROUNDS = [
      "gnd_top":"#A8D8A8","gnd_bot":"#80B880",
      "sun":"#FFCA28","sun2":"#FFA000"},
 ]
-
-TREE_X  = W - 115
-GROUND_Y = H * 3 // 5
 
 
 def _draw_gradient_background(img_array, bg):
@@ -1110,33 +1113,29 @@ def _get_amplitudes(audio_path, fps=FPS):
             n    = int(clip.duration * fps)
             clip.close()
         except Exception:
-            n = fps*4
-        return [0.5]*n
+            n = fps * 4
+        return [0.5] * n
 
-    wav_path = audio_path.rsplit(".",1)[0] + "_amp.wav"
+    wav_path = audio_path.rsplit(".", 1)[0] + "_amp.wav"
     try:
-        subprocess.run(["ffmpeg","-y","-i",audio_path,"-ar","22050","-ac","1",wav_path],
+        subprocess.run(["ffmpeg", "-y", "-i", audio_path, "-ar", "22050", "-ac", "1", wav_path],
                        capture_output=True, timeout=30)
         rate, data = wavfile.read(wav_path)
-        if len(data.shape)>1: data = data.mean(axis=1)
+        if len(data.shape) > 1:
+            data = data.mean(axis=1)
         data  = data.astype(float)
-        chunk = max(1, rate//fps)
-        amps  = [float(np.abs(data[i:i+chunk]).mean()) for i in range(0,len(data),chunk)]
+        chunk = max(1, rate // fps)
+        amps  = [float(np.abs(data[i:i+chunk]).mean()) for i in range(0, len(data), chunk)]
         mx    = max(amps) if amps else 1.0
-        return [a/mx for a in amps]
+        return [a / mx for a in amps]
     except Exception as e:
         print(f"    ⚠️  Amplitude analysis failed ({e})")
-        return [0.5]*100
+        return [0.5] * 100
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SCENE RENDERING
 # ─────────────────────────────────────────────────────────────────────────────
-VEG1_X = W // 4 - 10
-VEG2_X = W // 2 + 30
-CHAR_Y  = GROUND_Y + 60
-
-
 def render_dialogue_scene(story, line_data, scene_idx, fps=FPS):
     speaker    = line_data["speaker"].strip().lower()
     text       = line_data["text"]
@@ -1192,11 +1191,11 @@ def render_dialogue_scene(story, line_data, scene_idx, fps=FPS):
 
 
 def render_moral_scene(story, fps=FPS, duration=4.5):
-    scene_idx  = len(story["dialogues"]) - 1
-    frames     = []
-    n          = int(duration*fps)
-    font_hdr   = _get_font(28, bold=True)
-    font_moral = _get_font(22)
+    scene_idx   = len(story["dialogues"]) - 1
+    frames      = []
+    n           = int(duration * fps)
+    font_hdr    = _get_font(28, bold=True)
+    font_moral  = _get_font(22)
     moral_lines = _wrap_text(story["moral"], max_chars=28)
 
     for f in range(n):
@@ -1222,12 +1221,12 @@ def render_moral_scene(story, fps=FPS, duration=4.5):
         fade = min(1.0, t/0.9)
         if fade > 0:
             panel_h = len(moral_lines)*30 + 76
-            layer   = Image.new("RGBA", (W,H), (0,0,0,0))
+            layer   = Image.new("RGBA", (W, H), (0, 0, 0, 0))
             md      = ImageDraw.Draw(layer)
             ba      = int(215*fade); ta = int(255*fade)
-            md.rounded_rectangle([20,20,W-20,20+panel_h], radius=22,
+            md.rounded_rectangle([20, 20, W-20, 20+panel_h], radius=22,
                                   fill=(255,215,0,ba), outline=(180,130,0,ba), width=3)
-            md.text((W//2,46), "✨  Moral of the Story  ✨",
+            md.text((W//2, 46), "✨  Moral of the Story  ✨",
                     fill=(100,30,120,ta), font=font_hdr, anchor="mm")
             for i, ln in enumerate(moral_lines):
                 md.text((W//2, 82+i*30), ln,
@@ -1242,7 +1241,7 @@ def render_moral_scene(story, fps=FPS, duration=4.5):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# VIDEO ASSEMBLY  (with 3 retries)
+# VIDEO ASSEMBLY  (with retries)
 # ─────────────────────────────────────────────────────────────────────────────
 def _do_assemble(story, audio_files, base_name, fps):
     """Inner assembly logic — called up to MAX_RETRIES times."""
@@ -1301,15 +1300,13 @@ def _drive_upload(file_path, folder_id, mime="video/mp4"):
         from googleapiclient.discovery import build
         from googleapiclient.http import MediaFileUpload
         from google.auth.transport.requests import Request
-        import pickle, base64, json, tempfile
+        import pickle, base64, tempfile
     except ImportError:
         print("  ⚠️  pip install google-api-python-client google-auth-oauthlib")
         return None
 
-    SCOPES = ["https://www.googleapis.com/auth/drive.file"]
-    creds  = None
+    creds = None
 
-    # ── Try loading token from env var (GitHub Actions) ──────────────────────
     token_b64 = os.environ.get("GDRIVE_TOKEN_BASE64", "")
     if token_b64:
         try:
@@ -1318,7 +1315,6 @@ def _drive_upload(file_path, folder_id, mime="video/mp4"):
         except Exception as e:
             print(f"  ⚠️  Could not decode GDRIVE_TOKEN_BASE64: {e}")
 
-    # ── Fall back to token.pickle on disk (local dev) ─────────────────────────
     if creds is None and os.path.exists("token.pickle"):
         with open("token.pickle", "rb") as fh:
             creds = pickle.load(fh)
@@ -1328,17 +1324,14 @@ def _drive_upload(file_path, folder_id, mime="video/mp4"):
         print("  ❌ No Drive credentials found. Skipping upload.")
         return None
 
-    # ── Refresh if expired ────────────────────────────────────────────────────
     if not creds.valid:
         if creds.expired and creds.refresh_token:
-            # Need credentials.json to refresh — load from env or disk
             creds_json = os.environ.get("GDRIVE_CREDENTIALS_JSON", "")
             if creds_json:
                 tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
                 tmp.write(creds_json)
                 tmp.close()
                 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = tmp.name
-
             try:
                 creds.refresh(Request())
                 print("  🔄 Drive token refreshed.")
@@ -1349,7 +1342,6 @@ def _drive_upload(file_path, folder_id, mime="video/mp4"):
             print("  ❌ Token invalid and cannot refresh. Skipping upload.")
             return None
 
-    # ── Upload ────────────────────────────────────────────────────────────────
     try:
         svc   = build("drive", "v3", credentials=creds)
         meta  = {"name": os.path.basename(file_path),
@@ -1363,6 +1355,7 @@ def _drive_upload(file_path, folder_id, mime="video/mp4"):
     except Exception as e:
         print(f"  ❌ Drive upload failed: {e}")
         return None
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MAIN
@@ -1382,7 +1375,8 @@ def main():
     print("\n📖 Step 1 — Story (Gemini)…")
     story = generate_story()
     print(f"   Characters: {story['veg1'].title()} & {story['veg2'].title()}")
-    for d in story["dialogues"]: print(f"   {d}")
+    for d in story["dialogues"]:
+        print(f"   {d}")
     print(f"   MORAL: {story['moral']}")
 
     print("\n🏷️  Step 2 — Metadata (Gemini)…")
