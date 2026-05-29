@@ -58,15 +58,14 @@ except ImportError:
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIG  — edit before running
 # ─────────────────────────────────────────────────────────────────────────────
-GEMINI_API_KEY        = "AIzaSyAbhZabtm8xYEo0TiTeGBmrNLmaOD7A4MM"
-GOOGLE_DRIVE_FOLDER   = ""
-METADATA_DRIVE_FOLDER = ""
-UPLOAD_TO_DRIVE       = False
-BG_MUSIC_PATH         = ""
+GEMINI_API_KEY        = os.environ.get("GEMINI_API_KEY", "")
+GOOGLE_DRIVE_FOLDER   = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "")
+METADATA_DRIVE_FOLDER = os.environ.get("METADATA_DRIVE_FOLDER_ID", "")
+UPLOAD_TO_DRIVE       = os.environ.get("UPLOAD_TO_DRIVE", "false").lower() == "true"
+BG_MUSIC_PATH         = os.environ.get("BG_MUSIC_PATH", "")
 OUTPUT_DIR            = "output"
 METADATA_DIR          = "metadata"
 AUDIO_DIR             = "audio"
-FPS                   = 24
 
 W, H = 720, 1280   # Portrait / reel
 
