@@ -2,7 +2,7 @@ name: Vegetable Love Story Pipeline
 
 on:
   schedule:
-    # All times in UTC (IST = UTC+5:30, so subtract 5h30m)
+    # All times in UTC (IST = UTC+5:30)
     - cron: '30 0 * * *'   #  6:00 AM IST
     - cron: '30 2 * * *'   #  8:00 AM IST
     - cron: '30 4 * * *'   # 10:00 AM IST
@@ -11,7 +11,7 @@ on:
     - cron: '30 10 * * *'  #  4:00 PM IST
     - cron: '30 12 * * *'  #  6:00 PM IST
     - cron: '30 14 * * *'  #  8:00 PM IST
-  workflow_dispatch:        # Manual trigger from GitHub Actions UI
+  workflow_dispatch:
 
 jobs:
   generate-video:
@@ -45,38 +45,18 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ── 5. Patch secrets into script and run ───────────────────────────────
+      # ── 5. Run pipeline ────────────────────────────────────────────────────
       - name: Run pipeline
         env:
-          GEMINI_API_KEY:          ${{ secrets.GEMINI_API_KEY }}
-          GOOGLE_DRIVE_FOLDER_ID:  ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
-          METADATA_DRIVE_FOLDER_ID: ${{ secrets.METADATA_DRIVE_FOLDER_ID }}
-        run: |
-          python - <<'EOF'
-          import os, re
+          GEMINI_API_KEY:            ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_DRIVE_FOLDER_ID:    ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+          METADATA_DRIVE_FOLDER_ID:  ${{ secrets.METADATA_DRIVE_FOLDER_ID }}
+          GDRIVE_TOKEN_BASE64:       ${{ secrets.GDRIVE_TOKEN_BASE64 }}
+          GDRIVE_CREDENTIALS_JSON:   ${{ secrets.GDRIVE_CREDENTIALS_JSON }}
+          UPLOAD_TO_DRIVE:           "true"
+        run: python pipeline.py
 
-          gemini_key   = os.environ["GEMINI_API_KEY"]
-          drive_folder = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "")
-          meta_folder  = os.environ.get("METADATA_DRIVE_FOLDER_ID", "")
-
-          with open("pipeline.py", "r") as f:
-              src = f.read()
-
-          # Patch all three config values from secrets
-          src = re.sub(r'GEMINI_API_KEY\s*=\s*"[^"]*"',
-                       f'GEMINI_API_KEY = "{gemini_key}"', src)
-          src = re.sub(r'GOOGLE_DRIVE_FOLDER\s*=\s*"[^"]*"',
-                       f'GOOGLE_DRIVE_FOLDER = "{drive_folder}"', src)
-          src = re.sub(r'METADATA_DRIVE_FOLDER\s*=\s*"[^"]*"',
-                       f'METADATA_DRIVE_FOLDER = "{meta_folder}"', src)
-
-          with open("pipeline.py", "w") as f:
-              f.write(src)
-          EOF
-
-          python pipeline.py
-
-      # ── 6. Upload artifacts ────────────────────────────────────────────────
+      # ── 6. Upload artifacts to GitHub too (backup) ────────────────────────
       - name: Upload output files
         uses: actions/upload-artifact@v4
         with:

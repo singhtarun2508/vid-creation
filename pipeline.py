@@ -1297,38 +1297,69 @@ def _drive_upload(file_path, folder_id, mime="video/mp4"):
     try:
         from googleapiclient.discovery import build
         from googleapiclient.http import MediaFileUpload
-        from google_auth_oauthlib.flow import InstalledAppFlow
         from google.auth.transport.requests import Request
-        import pickle
+        import pickle, base64, json, tempfile
     except ImportError:
         print("  ⚠️  pip install google-api-python-client google-auth-oauthlib")
         return None
 
-    SCOPES   = ["https://www.googleapis.com/auth/drive.file"]
-    creds    = None
-    tok_path = "token.pickle"
-    if os.path.exists(tok_path):
-        with open(tok_path,"rb") as fh: creds = pickle.load(fh)
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+    SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+    creds  = None
+
+    # ── Try loading token from env var (GitHub Actions) ──────────────────────
+    token_b64 = os.environ.get("GDRIVE_TOKEN_BASE64", "")
+    if token_b64:
+        try:
+            creds = pickle.loads(base64.b64decode(token_b64))
+            print("  🔑 Loaded Drive token from environment.")
+        except Exception as e:
+            print(f"  ⚠️  Could not decode GDRIVE_TOKEN_BASE64: {e}")
+
+    # ── Fall back to token.pickle on disk (local dev) ─────────────────────────
+    if creds is None and os.path.exists("token.pickle"):
+        with open("token.pickle", "rb") as fh:
+            creds = pickle.load(fh)
+        print("  🔑 Loaded Drive token from token.pickle.")
+
+    if creds is None:
+        print("  ❌ No Drive credentials found. Skipping upload.")
+        return None
+
+    # ── Refresh if expired ────────────────────────────────────────────────────
+    if not creds.valid:
+        if creds.expired and creds.refresh_token:
+            # Need credentials.json to refresh — load from env or disk
+            creds_json = os.environ.get("GDRIVE_CREDENTIALS_JSON", "")
+            if creds_json:
+                tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
+                tmp.write(creds_json)
+                tmp.close()
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = tmp.name
+
+            try:
+                creds.refresh(Request())
+                print("  🔄 Drive token refreshed.")
+            except Exception as e:
+                print(f"  ❌ Token refresh failed: {e}. Skipping upload.")
+                return None
         else:
-            if not os.path.exists("credentials.json"):
-                print("  ⚠️  credentials.json missing."); return None
-            flow  = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
-            creds = flow.run_local_server(port=0)
-        with open(tok_path,"wb") as fh: pickle.dump(creds, fh)
+            print("  ❌ Token invalid and cannot refresh. Skipping upload.")
+            return None
 
-    svc   = build("drive","v3",credentials=creds)
-    meta  = {"name": os.path.basename(file_path),
-              "parents": [folder_id] if folder_id else []}
-    media = MediaFileUpload(file_path, mimetype=mime, resumable=True)
-    up    = svc.files().create(body=meta, media_body=media,
-                                fields="id,webViewLink").execute()
-    link  = up.get("webViewLink")
-    print(f"  ☁️  Uploaded: {link}")
-    return link
-
+    # ── Upload ────────────────────────────────────────────────────────────────
+    try:
+        svc   = build("drive", "v3", credentials=creds)
+        meta  = {"name": os.path.basename(file_path),
+                 "parents": [folder_id] if folder_id else []}
+        media = MediaFileUpload(file_path, mimetype=mime, resumable=True)
+        up    = svc.files().create(body=meta, media_body=media,
+                                   fields="id,webViewLink").execute()
+        link  = up.get("webViewLink")
+        print(f"  ☁️  Uploaded: {link}")
+        return link
+    except Exception as e:
+        print(f"  ❌ Drive upload failed: {e}")
+        return None
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MAIN

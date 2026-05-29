@@ -3,3 +3,6 @@ audio/
 metadata/
 output/
 add more
+token.pickle
+try.py
+credentials.json

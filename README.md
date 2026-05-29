@@ -4,6 +4,9 @@ Generates a short animated children's video with AI-written story,
 text-to-speech voices, and programmatic 2D character animation.
 **100% free to run** (Claude API is optional — a demo story is built in).
 
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("token.pickle"))
+
+
 ---
 
 ## What You Get
