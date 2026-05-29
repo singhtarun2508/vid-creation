@@ -97,6 +97,9 @@ def _gemini(prompt: str, max_tokens: int = 800) -> str:
     cfg    = genai_types.GenerateContentConfig(
         max_output_tokens=max_tokens,
         temperature=0.9,
+        thinking_config=genai_types.ThinkingConfig(
+            thinking_budget=0
+        )
     )
     response = client.models.generate_content(
         model=GEMINI_MODEL,
@@ -104,6 +107,28 @@ def _gemini(prompt: str, max_tokens: int = 800) -> str:
         config=cfg,
     )
     return response.text.strip()
+
+
+
+def _gemini_json(prompt: str, max_tokens: int = 800):
+    client = google_genai.Client(api_key=GEMINI_API_KEY)
+
+    cfg = genai_types.GenerateContentConfig(
+        max_output_tokens=max_tokens,
+        temperature=0.7,
+        response_mime_type="application/json",
+        thinking_config=genai_types.ThinkingConfig(
+            thinking_budget=0
+        )
+    )
+
+    response = client.models.generate_content(
+        model=GEMINI_MODEL,
+        contents=prompt,
+        config=cfg,
+    )
+
+    return json.loads(response.text)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -159,8 +184,13 @@ Output only the dialogue lines and the MORAL line, nothing else."""
                 if ":" in l and not l.upper().startswith("MORAL:")
             ][:5]
 
-            if len(dialogues) < 2:
-                raise ValueError(f"Too few dialogue lines parsed: {dialogues}")
+            if len(dialogues) != 5:
+                raise ValueError(
+                    f"Expected 5 dialogue lines, got {len(dialogues)}"
+                )
+
+            if not moral:
+                raise ValueError("Missing moral")
 
             story = {"veg1": veg1, "veg2": veg2, "dialogues": dialogues, "moral": moral}
             print(f"  ✅ Story generated: {veg1.title()} & {veg2.title()}")
@@ -220,13 +250,22 @@ Return ONLY valid JSON (absolutely no markdown fences, no extra text) with these
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             print(f"  🤖 Gemini metadata attempt {attempt}/{MAX_RETRIES}...")
-            raw = _gemini(prompt, max_tokens=600)
-            raw = raw.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
-            result = json.loads(raw)
+            # raw = _gemini(prompt, max_tokens=600)
+            # raw = raw.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+            # result = json.loads(raw)
+            result = _gemini_json(prompt, max_tokens=600)
             print("  ✅ Metadata generated.")
             return result
+        # except Exception as e:
+        #     print(f"  ❌ Metadata attempt {attempt} failed: {e}")
         except Exception as e:
             print(f"  ❌ Metadata attempt {attempt} failed: {e}")
+
+            try:
+                print("RAW RESPONSE:")
+                print(raw)
+            except:
+                pass
             if attempt < MAX_RETRIES:
                 time.sleep(2)
 
