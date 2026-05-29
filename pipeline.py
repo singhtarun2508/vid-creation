@@ -110,25 +110,6 @@ def _gemini(prompt: str, max_tokens: int = 800) -> str:
 
 
 
-def _gemini_json(prompt: str, max_tokens: int = 800):
-    client = google_genai.Client(api_key=GEMINI_API_KEY)
-
-    cfg = genai_types.GenerateContentConfig(
-        max_output_tokens=max_tokens,
-        temperature=0.7,
-        response_mime_type="application/json",
-        thinking_config=genai_types.ThinkingConfig(
-            thinking_budget=0
-        )
-    )
-
-    response = client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=prompt,
-        config=cfg,
-    )
-
-    return json.loads(response.text)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -208,71 +189,62 @@ Output only the dialogue lines and the MORAL line, nothing else."""
 # ─────────────────────────────────────────────────────────────────────────────
 # METADATA / JSON GENERATION  (Gemini)
 # ─────────────────────────────────────────────────────────────────────────────
-DEMO_METADATA = {
-    "youtube_title":
-        "🥕❤️🥔 The Carrot & Potato Love Story | Cute Veggie Tales #Shorts",
-    "youtube_description": (
-        "Watch as Carrot and Potato discover the magic of friendship and love in their "
-        "cozy little garden! 🌻✨\n\n"
-        "This sweet animated short reminds us that true love grows stronger through "
-        "every season. Perfect for kids and anyone who loves adorable veggie adventures!\n\n"
-        "💬 Tell us in the comments: which vegetable couple would you like to see next?\n\n"
-        "#Shorts #KidsAnimation #VeggieStory #CarrotAndPotato #CuteCartoon #AnimatedShorts"
-    ),
-    "instagram_caption": (
-        "🥕💛🥔 When Carrot met Potato, the whole garden bloomed! 🌸🌻\n\n"
-        "Sometimes the most unlikely friendships grow into the most beautiful love stories 💕\n\n"
-        "Swipe up to watch the full reel! 🎬✨\n\n"
-        "#VeggieLife #KidsAnimation #CuteCartoon #AnimatedReel #GardenLove #CarrotLove "
-        "#PotatoLove #ChildrensContent #FunForKids #AnimatedShorts #ReelViral #CuteFoodArt "
-        "#VegetableLove #KidsCartoon #FoodieArt #GardenVibes #InstagramReels #ShortFilm "
-        "#AnimationArt #LoveStory"
-    ),
-}
 
+VEG_INFO = {
+    "potato": "Potato is humble, loyal, and always ready to help friends in the garden.",
+    "carrot": "Carrot spreads sweetness, kindness, and cheerful energy wherever it grows.",
+    "broccoli": "Broccoli stands tall with confidence and loves encouraging everyone around it.",
+    "tomato": "Tomato brings bright red joy, friendship, and happiness to every garden.",
+    "onion": "Onion may have many layers, but its heart is full of warmth and friendship.",
+    "eggplant": "Eggplant is calm, creative, and always ready for a new adventure.",
+    "pumpkin": "Pumpkin shines with warmth, kindness, and a big heart all season long.",
+    "corn": "Corn loves making friends and brightening every sunny day in the garden.",
+    "cucumber": "Cucumber stays cool, friendly, and brings peace wherever it grows.",
+    "pepper": "Pepper is energetic, brave, and always ready to make life exciting.",
+    "zucchini": "Zucchini is gentle, caring, and loves helping its garden friends grow.",
+    "radish": "Radish is playful, cheerful, and brings smiles to everyone around."
+}
+COMMON_HASHTAGS = (
+    "#Shorts #KidsAnimation #VeggieStory "
+    "#CuteCartoon #AnimatedShorts "
+    "#KidsContent #GardenLove "
+    "#VegetableLove #FamilyFriendly "
+    "#ChildrensStories #CartoonReels "
+    "#KidsReels #StoryTime "
+    "#CuteVeggies #GardenFriends "
+    "#WholesomeContent #KidsEntertainment "
+    "#AnimationLovers #VeggieTales "
+    "#FeelGoodStories"
+)
 
 def generate_metadata(story: dict) -> dict:
-    if not HAS_GEMINI:
-        print("  ⚠️  google-genai not available — using demo metadata.\n")
-        return _swap_demo_metadata(story)
 
-    v1, v2 = story["veg1"].title(), story["veg2"].title()
-    prompt = f"""Create social-media metadata for a children's animated YouTube Short about a
-love story between {v1} and {v2}. The moral is: "{story['moral']}"
+    v1 = story["veg1"]
+    v2 = story["veg2"]
 
-Return ONLY valid JSON (absolutely no markdown fences, no extra text) with these three keys:
-{{
-  "youtube_title": "<catchy title ≤100 chars, include #Shorts at end>",
-  "youtube_description": "<2-3 paragraph description with relevant hashtags>",
-  "instagram_caption": "<engaging caption + exactly 20 SEO hashtags>"
-}}"""
+    intro = (
+        f"❤️ Witness a heartwarming chat between "
+        f"{v1.title()} and {v2.title()}!"
+    )
 
-    for attempt in range(1, MAX_RETRIES + 1):
-        try:
-            print(f"  🤖 Gemini metadata attempt {attempt}/{MAX_RETRIES}...")
-            # raw = _gemini(prompt, max_tokens=600)
-            # raw = raw.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
-            # result = json.loads(raw)
-            result = _gemini_json(prompt, max_tokens=600)
-            print("  ✅ Metadata generated.")
-            return result
-        except Exception as e:
-            print(f"  ❌ Metadata attempt {attempt} failed: {e}")
-            if attempt < MAX_RETRIES:
-                time.sleep(2)
+    description = (
+        f"{intro}\n\n"
+        f"{VEG_INFO[v1]}\n\n"
+        f"{VEG_INFO[v2]}\n\n"
+        f"Moral: {story['moral']}\n\n"
+        f"{COMMON_HASHTAGS}"
+    )
 
-    print("  ⚠️  All metadata attempts failed — using demo metadata.")
-    return _swap_demo_metadata(story)
+    return {
+        "youtube_title":
+            f"❤️ Witness a Heartwarming Chat Between {v1.title()} and {v2.title()} #Shorts",
 
+        "youtube_description":
+            description,
 
-def _swap_demo_metadata(story: dict) -> dict:
-    meta = dict(DEMO_METADATA)
-    v1, v2 = story["veg1"].title(), story["veg2"].title()
-    for k in meta:
-        meta[k] = (meta[k]
-                   .replace("Carrot", v1).replace("Potato", v2)
-                   .replace("carrot", v1.lower()).replace("potato", v2.lower()))
-    return meta
+        "instagram_caption":
+            description
+    }
 
 
 def save_metadata(story: dict, meta: dict, base_name: str) -> str:
