@@ -256,16 +256,8 @@ Return ONLY valid JSON (absolutely no markdown fences, no extra text) with these
             result = _gemini_json(prompt, max_tokens=600)
             print("  ✅ Metadata generated.")
             return result
-        # except Exception as e:
-        #     print(f"  ❌ Metadata attempt {attempt} failed: {e}")
         except Exception as e:
             print(f"  ❌ Metadata attempt {attempt} failed: {e}")
-
-            try:
-                print("RAW RESPONSE:")
-                print(raw)
-            except:
-                pass
             if attempt < MAX_RETRIES:
                 time.sleep(2)
 
