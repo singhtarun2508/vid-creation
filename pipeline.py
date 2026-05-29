@@ -1,15 +1,13 @@
 """
-🥕 Animated Vegetable Love Story Pipeline  (Reel Edition v5)
+🥕 Animated Vegetable Love Story Pipeline  (Reel Edition v6)
 =============================================================
 Portrait 720×1280  |  No title card  |  No flash transitions
-Moral text at top of final scene  |  JSON metadata alongside video
+Twist ending  |  JSON metadata alongside video
 
-Changes in v5:
-- Switched from deprecated google.generativeai → google.genai (new SDK)
-- Fixed story/metadata generation (was silently falling back to demo)
-- Audio generation retries up to 3 times per line
-- Video assembly retries up to 3 times
-- Better error logging throughout
+Changes in v6:
+- Funny/unexpected twist ending prompt
+- Removed moral from story/final scene
+- All other logic identical to v5
 """
 
 import os
@@ -93,27 +91,6 @@ except ImportError:
 # ─────────────────────────────────────────────────────────────────────────────
 # GEMINI HELPER  (google.genai — new SDK)
 # ─────────────────────────────────────────────────────────────────────────────
-# def _gemini(prompt: str, max_tokens: int = 800) -> str:
-#     """Call Gemini via the new google.genai SDK and return the text response."""
-#     if not HAS_GEMINI:
-#         raise RuntimeError("google-genai package not installed.")
-
-#     client = google_genai.Client(api_key=GEMINI_API_KEY)
-#     cfg    = genai_types.GenerateContentConfig(
-#         max_output_tokens=max_tokens,
-#         temperature=0.9,
-#         thinking_config=genai_types.ThinkingConfig(
-#             thinking_budget=0
-#         )
-#     )
-#     response = client.models.generate_content(
-#         model=GEMINI_MODEL,
-#         contents=prompt,
-#         config=cfg,
-#     )
-#     return response.text.strip()
-
-
 def _gemini(prompt: str, max_tokens: int = 800) -> str:
     if not HAS_GEMINI:
         raise RuntimeError("google-genai package not installed.")
@@ -179,13 +156,12 @@ DEMO_STORY = {
     "veg1": "carrot",
     "veg2": "potato",
     "dialogues": [
-        "CARROT: Oh Potato, your golden eyes sparkle like the autumn sun!",
-        "POTATO: And your bright orange glow warms my heart every morning, dear Carrot.",
-        "CARROT: Together in this garden, nothing feels impossible.",
-        "POTATO: Let us grow side by side forever, roots intertwined.",
-        "CARROT: No storm or frost could ever keep us apart, my love.",
+        "CARROT: Oh Potato, I have loved you since the day we met in this garden.",
+        "POTATO: And I you, dear Carrot. Nothing could ever tear us apart.",
+        "CARROT: Promise me we will be together forever.",
+        "POTATO: I promise with all my heart, my love.",
+        "CARROT: Great. Because I just signed us both up for a soup.",
     ],
-    "moral": "True love grows stronger when you stand by each other through every season.",
 }
 
 
@@ -195,13 +171,22 @@ def generate_story() -> dict:
         return DEMO_STORY
 
     veg1, veg2 = random.sample(VEGETABLES, 2)
-    prompt = f"""Write a short children's love story between a {veg1} and a {veg2}.
+
+    prompt = f"""Write a short story with a funny or unexpected twist ending between a {veg1} and a {veg2}.
+
 Rules:
-- Exactly 5 lines of dialogue, no narration.
-- Each line spoken by ONE character, labelled {veg1.upper()}: or {veg2.upper()}:
-- One final line starting with MORAL: (one sentence only, no label inside the sentence)
-- Max 200 words total, G-rated, for children aged 3-8.
-Output only the dialogue lines and the MORAL line, nothing else."""
+- EXACTLY 5 dialogue lines
+- NO narration
+- Every line must start with either:
+  {veg1.upper()}:
+  or
+  {veg2.upper()}:
+- The first 4 lines should build suspense or emotion
+- The 5th line must contain a surprising, funny, or dark twist
+- Keep sentences short
+- Maximum 120 words total
+- Do NOT add anything outside the 5 dialogue lines
+"""
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
@@ -209,14 +194,9 @@ Output only the dialogue lines and the MORAL line, nothing else."""
             text  = _gemini(prompt, max_tokens=500)
             lines = [l.strip() for l in text.split("\n") if l.strip()]
 
-            moral_raw = next(
-                (l for l in lines if l.upper().startswith("MORAL:")),
-                "MORAL: Love makes every garden bloom."
-            )
-            moral     = moral_raw.split(":", 1)[1].strip()
             dialogues = [
                 l for l in lines
-                if ":" in l and not l.upper().startswith("MORAL:")
+                if ":" in l
             ][:5]
 
             if len(dialogues) != 5:
@@ -224,10 +204,7 @@ Output only the dialogue lines and the MORAL line, nothing else."""
                     f"Expected 5 dialogue lines, got {len(dialogues)}"
                 )
 
-            if not moral:
-                raise ValueError("Missing moral")
-
-            story = {"veg1": veg1, "veg2": veg2, "dialogues": dialogues, "moral": moral}
+            story = {"veg1": veg1, "veg2": veg2, "dialogues": dialogues}
             print(f"  ✅ Story generated: {veg1.title()} & {veg2.title()}")
             return story
 
@@ -241,7 +218,7 @@ Output only the dialogue lines and the MORAL line, nothing else."""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# METADATA / JSON GENERATION  (Gemini)
+# METADATA / JSON GENERATION
 # ─────────────────────────────────────────────────────────────────────────────
 
 VEG_INFO = {
@@ -277,21 +254,20 @@ def generate_metadata(story: dict) -> dict:
     v2 = story["veg2"]
 
     intro = (
-        f"❤️ Witness a heartwarming chat between "
-        f"{v1.title()} and {v2.title()}!"
+        f"😂 Watch what happens when "
+        f"{v1.title()} and {v2.title()} meet in the garden!"
     )
 
     description = (
         f"{intro}\n\n"
         f"{VEG_INFO[v1]}\n\n"
         f"{VEG_INFO[v2]}\n\n"
-        f"Moral: {story['moral']}\n\n"
         f"{COMMON_HASHTAGS}"
     )
 
     return {
         "youtube_title":
-            f"❤️ Witness a Heartwarming Chat Between {v1.title()} and {v2.title()} #Shorts",
+            f"😂 {v1.title()} & {v2.title()} Have a Chat — Wait for the Twist! #Shorts",
 
         "youtube_description":
             description,
@@ -307,7 +283,6 @@ def save_metadata(story: dict, meta: dict, base_name: str) -> str:
     payload = {
         "generated_at": datetime.utcnow().isoformat() + "Z",
         "characters": {"veg1": story["veg1"], "veg2": story["veg2"]},
-        "moral": story["moral"],
         **meta,
     }
     with open(path, "w", encoding="utf-8") as f:
@@ -1247,13 +1222,11 @@ def render_dialogue_scene(story, line_data, scene_idx, fps=24):
     return frames, audio_clip
 
 
-def render_moral_scene(story, fps=24, duration=4.5):
-    scene_idx   = len(story["dialogues"]) - 1
-    frames      = []
-    n           = int(duration * fps)
-    font_hdr    = _get_font(28, bold=True)
-    font_moral  = _get_font(22)
-    moral_lines = _wrap_text(story["moral"], max_chars=28)
+def render_final_scene(story, fps=24, duration=4.5):
+    """Final scene: both characters together, no moral panel — just a happy ending."""
+    scene_idx  = len(story["dialogues"]) - 1
+    frames     = []
+    n          = int(duration * fps)
 
     for f in range(n):
         t    = f / fps
@@ -1266,6 +1239,7 @@ def render_moral_scene(story, fps=24, duration=4.5):
         draw_character(draw, story["veg1"], VEG1_X, CHAR_Y+bob1, scale=1.1)
         draw_character(draw, story["veg2"], VEG2_X, CHAR_Y+bob2, scale=1.1)
 
+        # Floating hearts
         for hrt_x, hrt_base, spd in [
             ((VEG1_X+VEG2_X)//2-25, CHAR_Y-140, 0.9),
             ((VEG1_X+VEG2_X)//2+25, CHAR_Y-170, 1.3),
@@ -1274,23 +1248,6 @@ def render_moral_scene(story, fps=24, duration=4.5):
             hy_ = hrt_base - int(40*((t*spd) % 1.0))
             ha  = 1.0 - ((t*spd) % 1.0)
             _draw_heart(draw, hrt_x, hy_, int(15*ha))
-
-        fade = min(1.0, t/0.9)
-        if fade > 0:
-            panel_h = len(moral_lines)*30 + 76
-            layer   = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-            md      = ImageDraw.Draw(layer)
-            ba      = int(215*fade); ta = int(255*fade)
-            md.rounded_rectangle([20, 20, W-20, 20+panel_h], radius=22,
-                                  fill=(255,215,0,ba), outline=(180,130,0,ba), width=3)
-            md.text((W//2, 46), "✨  Moral of the Story  ✨",
-                    fill=(100,30,120,ta), font=font_hdr, anchor="mm")
-            for i, ln in enumerate(moral_lines):
-                md.text((W//2, 82+i*30), ln,
-                        fill=(60,20,80,ta), font=font_moral, anchor="mm")
-            base = base.convert("RGBA")
-            base = Image.alpha_composite(base, layer)
-            base = base.convert("RGB")
 
         frames.append(np.array(base))
 
@@ -1309,9 +1266,9 @@ def _do_assemble(story, audio_files, base_name, fps):
         frames, audio_clip = render_dialogue_scene(story, line_data, i, fps)
         all_clips.append(ImageSequenceClip(frames, fps=fps).set_audio(audio_clip))
 
-    print("  🎬 Rendering moral scene...")
-    moral_frames = render_moral_scene(story, fps)
-    all_clips.append(ImageSequenceClip(moral_frames, fps=fps))
+    print("  🎬 Rendering final scene...")
+    final_frames = render_final_scene(story, fps)
+    all_clips.append(ImageSequenceClip(final_frames, fps=fps))
 
     print("  🔗 Concatenating…")
     final = concatenate_videoclips(all_clips, method="compose")
@@ -1418,7 +1375,7 @@ def _drive_upload(file_path, folder_id, mime="video/mp4"):
 # MAIN
 # ─────────────────────────────────────────────────────────────────────────────
 def main():
-    print("\n🥕  Animated Vegetable Story Pipeline  (Reel Edition 720×1280 v5 — google.genai)")
+    print("\n🥕  Animated Vegetable Story Pipeline  (Reel Edition 720×1280 v6 — Twist Ending)")
     print("=" * 78)
 
     if not HAS_MOVIEPY:
@@ -1434,9 +1391,8 @@ def main():
     print(f"   Characters: {story['veg1'].title()} & {story['veg2'].title()}")
     for d in story["dialogues"]:
         print(f"   {d}")
-    print(f"   MORAL: {story['moral']}")
 
-    print("\n🏷️  Step 2 — Metadata (Gemini)…")
+    print("\n🏷️  Step 2 — Metadata…")
     meta      = generate_metadata(story)
     json_path = save_metadata(story, meta, base_name)
     print(f"   YouTube title: {meta['youtube_title']}")
