@@ -25,6 +25,8 @@ import numpy as np
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 
+FPS = 24
+
 # ── Optional imports ──────────────────────────────────────────────────────────
 try:
     from google import genai as google_genai
@@ -68,7 +70,7 @@ METADATA_DIR          = "metadata"
 AUDIO_DIR             = "audio"
 
 W, H = 720, 1280   # Portrait / reel
-FPS = 24
+
 
 VOICE_1 = "en-US-AriaNeural"
 VOICE_2 = "en-US-GuyNeural"
