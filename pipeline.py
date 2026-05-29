@@ -33,7 +33,7 @@ W, H = 720, 1280   # Portrait / reel
 VOICE_1 = "en-US-AriaNeural"
 VOICE_2 = "en-US-GuyNeural"
 
-GEMINI_MODEL = "gemini-2.5-flash"
+GEMINI_MODEL = "gemini-2.5-flash-lite"
 
 MAX_RETRIES = 3   # retries for audio lines and video assembly
 
