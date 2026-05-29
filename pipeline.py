@@ -1106,7 +1106,7 @@ def draw_speech_bubble_layer(text, speaker_name, appear_progress=1.0):
 # ─────────────────────────────────────────────────────────────────────────────
 # AUDIO AMPLITUDE
 # ─────────────────────────────────────────────────────────────────────────────
-def _get_amplitudes(audio_path, fps=FPS):
+def _get_amplitudes(audio_path, fps=24):
     if not HAS_SCIPY:
         try:
             clip = AudioFileClip(audio_path)
@@ -1136,7 +1136,7 @@ def _get_amplitudes(audio_path, fps=FPS):
 # ─────────────────────────────────────────────────────────────────────────────
 # SCENE RENDERING
 # ─────────────────────────────────────────────────────────────────────────────
-def render_dialogue_scene(story, line_data, scene_idx, fps=FPS):
+def render_dialogue_scene(story, line_data, scene_idx, fps=24):
     speaker    = line_data["speaker"].strip().lower()
     text       = line_data["text"]
     veg1, veg2 = story["veg1"], story["veg2"]
@@ -1190,7 +1190,7 @@ def render_dialogue_scene(story, line_data, scene_idx, fps=FPS):
     return frames, audio_clip
 
 
-def render_moral_scene(story, fps=FPS, duration=4.5):
+def render_moral_scene(story, fps=24, duration=4.5):
     scene_idx   = len(story["dialogues"]) - 1
     frames      = []
     n           = int(duration * fps)
@@ -1275,7 +1275,7 @@ def _do_assemble(story, audio_files, base_name, fps):
     return out_path
 
 
-def assemble_video(story, audio_files, base_name, fps=FPS):
+def assemble_video(story, audio_files, base_name, fps=24):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     for attempt in range(1, MAX_RETRIES + 1):
         try:
