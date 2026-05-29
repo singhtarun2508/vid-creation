@@ -1,0 +1,87 @@
+name: Vegetable Love Story Pipeline
+
+on:
+  schedule:
+    # All times in UTC (IST = UTC+5:30, so subtract 5h30m)
+    - cron: '30 0 * * *'   #  6:00 AM IST
+    - cron: '30 2 * * *'   #  8:00 AM IST
+    - cron: '30 4 * * *'   # 10:00 AM IST
+    - cron: '30 6 * * *'   # 12:00 PM IST
+    - cron: '30 8 * * *'   #  2:00 PM IST
+    - cron: '30 10 * * *'  #  4:00 PM IST
+    - cron: '30 12 * * *'  #  6:00 PM IST
+    - cron: '30 14 * * *'  #  8:00 PM IST
+  workflow_dispatch:        # Manual trigger from GitHub Actions UI
+
+jobs:
+  generate-video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Python ──────────────────────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      # ── 3. System deps ─────────────────────────────────────────────────────
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            ffmpeg \
+            fonts-dejavu-core \
+            fonts-liberation
+
+      # ── 4. Python packages ─────────────────────────────────────────────────
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # ── 5. Patch secrets into script and run ───────────────────────────────
+      - name: Run pipeline
+        env:
+          GEMINI_API_KEY:          ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_DRIVE_FOLDER_ID:  ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+          METADATA_DRIVE_FOLDER_ID: ${{ secrets.METADATA_DRIVE_FOLDER_ID }}
+        run: |
+          python - <<'EOF'
+          import os, re
+
+          gemini_key   = os.environ["GEMINI_API_KEY"]
+          drive_folder = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "")
+          meta_folder  = os.environ.get("METADATA_DRIVE_FOLDER_ID", "")
+
+          with open("pipeline.py", "r") as f:
+              src = f.read()
+
+          # Patch all three config values from secrets
+          src = re.sub(r'GEMINI_API_KEY\s*=\s*"[^"]*"',
+                       f'GEMINI_API_KEY = "{gemini_key}"', src)
+          src = re.sub(r'GOOGLE_DRIVE_FOLDER\s*=\s*"[^"]*"',
+                       f'GOOGLE_DRIVE_FOLDER = "{drive_folder}"', src)
+          src = re.sub(r'METADATA_DRIVE_FOLDER\s*=\s*"[^"]*"',
+                       f'METADATA_DRIVE_FOLDER = "{meta_folder}"', src)
+
+          with open("pipeline.py", "w") as f:
+              f.write(src)
+          EOF
+
+          python pipeline.py
+
+      # ── 6. Upload artifacts ────────────────────────────────────────────────
+      - name: Upload output files
+        uses: actions/upload-artifact@v4
+        with:
+          name: vegetable-story-${{ github.run_number }}
+          path: |
+            output/*.mp4
+            metadata/*.json
+          retention-days: 7
